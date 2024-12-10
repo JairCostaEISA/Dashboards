@@ -6,7 +6,7 @@ import pyodbc
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-import login
+
 
 def exibir_tela_reports():
 # Configuração inicial da página
