@@ -7,33 +7,23 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 
+SERVER = '172.22.0.120'
+DATABASE = 'eisa_pr2014_vivo_aceitacao_db'
+USERNAME = 'qc_minerva'
+PASSWORD = 'qc2014minerva'
+
+conexaoBaseQC = f'DRIVER={{SQL Server}};SERVER={SERVER};DATABASE={DATABASE};UID={USERNAME};PWD={PASSWORD}'
+
+# conexao = pyodbc.connect(conexaoBaseQC)
+# print("Conexao Bem Sucedida")
+try:
+    conexao = pyodbc.connect(conexaoBaseQC)
+    print("Conexão Bem Sucedida")
+except pyodbc.Error as e:
+    st.error("Erro ao conectar ao banco de dados. Verifique as configurações.")
+    st.stop()  # Para a execução do aplicativo
 
 def exibir_tela_reports():
-# Configuração inicial da página
-    st.set_page_config(
-        page_title="Gestão de Defeitos",    # Título da aba do navegador
-        page_icon="📊",                     # Ícone da aba do navegador
-        layout="wide",                  # Layout: 'centered' ou 'wide' >> layout da página como "wide" (amplo), permitindo que o DataFrame ocupe mais espaço.
-        initial_sidebar_state="expanded"    # 'auto', 'expanded', 'collapsed'
-    )
-    # Conteúdo do aplicativo / Titulo da pagina
-    st.title("DEP3.1 - Gestão de Defeitos NGIN, Smarts e RM")
-    st.write("Aqui você pode visualizar a lista de Bugs sob nossa responsabilidade.")
-
-    SERVER = '172.22.0.120'
-    DATABASE = 'eisa_pr2014_vivo_aceitacao_db'
-    USERNAME = 'qc_minerva'
-    PASSWORD = 'qc2014minerva'
-
-    conexaoBaseQC = f'DRIVER={{SQL Server}};SERVER={SERVER};DATABASE={DATABASE};UID={USERNAME};PWD={PASSWORD}'
-
-    conexao = pyodbc.connect(conexaoBaseQC)
-    print("Conexao Bem Sucedida")
-
-    # comando_sql = "SELECT BG_USER_06 AS ENVIROMENT, BG_DETECTION_DATE AS DETECTION_DATE,BG_BUG_ID AS BUG_ID FROM TD.BUG WHERE BG_BUG_ID = 86424"
-    # dadosGerais = pd.read_sql(comando_sql, conexao)
-
-    # # print(dadosGerais)
 
     Consulta_SQL = """
     SELECT
@@ -79,8 +69,26 @@ def exibir_tela_reports():
     FROM TD.BUG 
     WHERE BG_DETECTED_BY IN ('pticketuser')
     AND BG_DETECTION_DATE >= '2024-01-01 00:00:00.000'
-    ORDER BY ABERTURA DESC, PROJETO DESC
+    ORDER BY ABERTURA, PROJETO DESC
     """
+
+    # Conteúdo do aplicativo / Titulo da pagina
+    st.title("DEP3.1 - Gestão de Defeitos NGIN, Smarts e RM")
+    st.write("Aqui você pode visualizar a lista de Bugs sob nossa responsabilidade.")
+
+    # # Verificar se os dados já estão carregados no session_state
+    # if "dados" not in st.session_state:
+    #     st.session_state.dados = pd.read_sql(Consulta_SQL, conexao)
+    
+    # # Botão para atualizar os dados no corpo principal
+    # if st.button("Atualizar Dados"):
+    #     with st.spinner("Atualizando dados..."):
+    #         st.session_state.dados = pd.read_sql(Consulta_SQL, conexao)  # Recarrega os dados do banco
+    #         st.success("Dados atualizados com sucesso!")
+
+    # Adicionar botão de reexecução
+    if st.button("Atualizar Dados"):
+        st.rerun()
 
     # Executando a consulta
     dadosGerais = pd.read_sql(Consulta_SQL, conexao)
@@ -169,7 +177,7 @@ def exibir_tela_reports():
 
     # Exibição dos dados filtrados
     if df_filtro.empty:
-        st.warning("Nenhum dado encontrado para os filtros selecionados.")
+        st.warning("Nenhum dado encontrado para os filtros selecionados. Tente ajustar os filtros na barra lateral para visualizar os resultados.")
     else:
         colunas_selecionadas = st.multiselect(              # Multiselect / lista para selecionar as colunas a serem exibidas
             "Selecione as colunas que deseja visualizar:",
@@ -185,10 +193,28 @@ def exibir_tela_reports():
 
         st.info("Use o botão abaixo para baixar os dados filtrados em um arquivo EXCEL:")
         
+        # # Botão para baixar os dados filtrados como Excel
+        # output = BytesIO()
+        # with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        #     df_filtro[colunas_selecionadas].to_excel(writer, index=False, sheet_name="Reports_Defeitos")
+        # processed_data = output.getvalue()
+
         # Botão para baixar os dados filtrados como Excel
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            df_filtro[colunas_selecionadas].to_excel(writer, index=False, sheet_name="Reports_Defeitos")
+            # Para cada projeto na seleção atual, criar uma aba com os dados filtrados
+            for projeto in df_filtro["PROJETO"].unique():
+                # Filtrar os dados para o projeto atual
+                df_projeto = df_filtro[df_filtro["PROJETO"] == projeto]
+                
+                # Selecionar apenas as colunas desejadas
+                df_projeto = df_projeto[colunas_selecionadas]
+                
+                # Escrever na aba do Excel com o nome do projeto
+                abas = projeto[:31]  # Limitar o nome da aba a 31 caracteres (limite do Excel)
+                df_projeto.to_excel(writer, index=False, sheet_name=abas)
+        
+        # Obter os dados processados do arquivo Excel em memória
         processed_data = output.getvalue()
 
         st.download_button(
@@ -201,8 +227,8 @@ def exibir_tela_reports():
 
     #################################################################################################################################################################################################
 
-    col1, col2 = st.columns(2) # Divide a tela em 2 colunas
-    col3, col4 = st.columns(2)
+    # col3, col4 = st.columns(2) # Divide a tela em 2 colunas
+    # col5, col6 = st.columns(2)
 
     #################################################################################################################################################################################################
 
@@ -230,8 +256,8 @@ def exibir_tela_reports():
         yaxis=dict(showticklabels=True)  # Exibe os rótulos no eixo Y
         )
 
-    with col1:
-        st.plotly_chart(grafico1, use_container_width=True)
+    # with col3:
+    #     st.plotly_chart(grafico1, use_container_width=True)
 
     #################################################################################################################################################################################################
 
@@ -257,8 +283,8 @@ def exibir_tela_reports():
     #     yaxis=dict(showticklabels=True)  # Exibe os rótulos no eixo Y
     #     )
 
-    with col2:
-        st.plotly_chart(grafico2, use_container_width=True)
+    # with col4:
+    #     st.plotly_chart(grafico2, use_container_width=True)
 
     #################################################################################################################################################################################################
 
@@ -269,23 +295,12 @@ def exibir_tela_reports():
         title='Quantidade de Defeitos por ESTEIRA',
         values='Qtd_Defeitos',
         names='ESTEIRA'
-        )
-            
+        )         
             
     grafico3.update_traces(
         textinfo='label + percent',  # Adiciona os valores da contagem como texto
         textposition='auto',       # Posiciona o texto dentro das barras = > ('auto' ou 'inside' ou outside)
         )
-
-    # grafico1.update_layout(
-    #     legend_title="PROJETOS",  # Alterar o título da legenda
-    #     xaxis_title=None,  # Remove o título do eixo X
-    #     yaxis_title=None,  # Remove o título do eixo Y
-    #     yaxis=dict(showticklabels=True)  # Exibe os rótulos no eixo Y
-    #     )
-
-    with col3:
-        st.plotly_chart(grafico3, use_container_width=True)
 
     #################################################################################################################################################################################################
 
@@ -313,5 +328,17 @@ def exibir_tela_reports():
         yaxis=dict(showticklabels=True)  # Exibe os rótulos no eixo Y
         )
 
+    # with col6:
+    #     st.plotly_chart(grafico4, use_container_width=True)
+
+    with st.container():  # Agrupar gráficos relacionados
+        col1, col2 = st.columns(2)
+        col3, col4 = st.columns(2)
+    with col1:
+        st.plotly_chart(grafico1, use_container_width=True)
+    with col2:
+        st.plotly_chart(grafico2, use_container_width=True)
+    with col3:
+        st.plotly_chart(grafico3, use_container_width=True)
     with col4:
         st.plotly_chart(grafico4, use_container_width=True)

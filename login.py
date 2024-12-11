@@ -2,6 +2,14 @@ import streamlit as st
 import smtplib
 from paginas import reports  # Importa a página de reports
 
+# Configuração inicial da página
+st.set_page_config(
+    page_title="Gestão de Defeitos",    # Título da aba do navegador
+    page_icon="📊",                     # Ícone da aba do navegador
+    layout="wide",                  # Layout: 'centered' ou 'wide' >> layout da página como "wide" (amplo), permitindo que o DataFrame ocupe mais espaço.
+    initial_sidebar_state="expanded"    # 'auto', 'expanded', 'collapsed'
+    )
+
 # Função para validar o login
 def validar_email_sender(sender_email, password):
     """Valida se o sender_email existe e a senha é válida."""
@@ -26,12 +34,12 @@ if "current_page" not in st.session_state:
 def tela_login():
     
     # Cria três colunas para centralizar os campos
-    col1, col2, col3 = st.columns([1, 2, 1])  # Centraliza na coluna do meio
+    col1, col2, col3 = st.columns([2, 1, 2])  # Centraliza na coluna do meio
     with col2:
         st.subheader("Acesse sua conta")
 
     # Cria três colunas para centralizar os campos
-    col4, col5, col6 = st.columns([1, 2, 1])  # Centraliza na coluna do meio
+    col4, col5, col6 = st.columns([2, 1, 2])  # Centraliza na coluna do meio
     with col5:  # Campos na coluna central
         username = st.text_input("Usuário", placeholder="Digite seu nome de usuário", key="username")
         password = st.text_input("Senha", type="password", placeholder="Digite sua senha de 'E-MAIL'", key="password")
